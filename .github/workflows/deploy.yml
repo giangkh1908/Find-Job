@@ -71,7 +71,26 @@ jobs:
             # Restart services
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Cleanup old images
+            # Cleanup old Docker images (keep only 2 most recent tagged images)
+            echo "Before cleanup:"
+            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}"
+
+            echo "Cleaning up old images..."
+            
+            # Remove dangling images (untagged)
             docker image prune -f
+            
+            # Remove old tagged images except latest and previous sha
+            docker images --format '{{.Repository}}:{{.Tag}}' | \
+              grep -E 'giangkh1908/find-job-(backend|frontend):' | \
+              grep -v ':latest' | \
+              head -n -4 | \
+              xargs -r docker rmi 2>/dev/null || true
+
+            echo "After cleanup:"
+            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+            
+            # Show disk space reclaimed
+            docker system df
 
             echo "Deployed: ${{ env.GITHUB_SHA }}"
