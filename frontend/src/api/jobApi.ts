@@ -1,6 +1,6 @@
 import type { Job } from '@/types'
 
-const API_BASE = 'http://localhost:3000/api'
+const API_BASE = '/api'
 
 export interface SearchJobsPayload {
   prompt: string

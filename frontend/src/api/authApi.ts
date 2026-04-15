@@ -1,6 +1,6 @@
 import type { AuthResponse, RegisterResponse, VerifyEmailResponse } from '@/types/auth'
 
-const API_BASE = 'http://localhost:3000/api'
+const API_BASE = '/api'
 
 async function fetchApi<T>(
   endpoint: string,

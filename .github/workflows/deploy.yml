@@ -65,9 +65,10 @@ jobs:
           script: |
             cd /home/deploy/app
 
-            # Pull latest code from git
-            echo "Pulling latest code..."
-            git pull origin main
+            # Pull latest code from git (force sync - discard local changes)
+            echo "Syncing code from git..."
+            git fetch origin
+            git reset --hard origin/main
 
             # Pull latest images
             docker compose -f docker-compose.prod.yml pull
