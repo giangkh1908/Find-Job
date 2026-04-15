@@ -12,6 +12,73 @@ let inMemoryCache = null;
 let inMemoryCacheTime = 0;
 const IN_MEMORY_TTL = 60 * 1000; // 1 minute
 
+async function fetchWithFlareSolverr(url) {
+  if (!config.flareSolverrUrl) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(`${config.flareSolverrUrl}/v1`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cmd: 'request.get',
+        url: url,
+        maxTimeout: 60000,
+        cookies: [],
+        proxy: {},
+      }),
+    });
+
+    const data = await response.json();
+    
+    if (data.status === 'ok' && data.solution?.response) {
+      return data.solution.response;
+    }
+    
+    console.log(`[FlareSolverr] Failed for ${url}: ${data.message || 'Unknown error'}`);
+    return null;
+  } catch (err) {
+    console.error(`[FlareSolverr] Error: ${err.message}`);
+    return null;
+  }
+}
+
+function extractJobsFromHtml(html) {
+  const results = [];
+  const parser = new (require('node-html-parser')).default(html);
+  
+  const cards = parser.querySelectorAll('.job-item-search-result');
+  
+  cards.forEach(card => {
+    const titleEl = card.querySelector('a[aria-label]');
+    const imgEl = card.querySelector('.avatar img');
+    const salaryEl = card.querySelector('label.salary span');
+    const addressEl = card.querySelector('label.address span');
+    const expEl = card.querySelector('label.exp span');
+    
+    const title = titleEl?.getAttribute('aria-label') || '';
+    const link = titleEl?.getAttribute('href')?.split('?')[0] || '';
+    const company = imgEl?.getAttribute('alt') || '';
+    const salary = salaryEl?.text?.trim() || 'Thoả thuận';
+    const location = addressEl?.text?.trim() || 'N/A';
+    const experience = expEl?.text?.trim() || 'N/A';
+    
+    if (title && link && !link.includes('cloudflare') && !link.includes('5xx')) {
+      results.push({
+        title,
+        company: company || 'TopCV',
+        salary,
+        location,
+        experience,
+        link: link.startsWith('http') ? link : `https://www.topcv.vn${link}`,
+      });
+    }
+  });
+  
+  return results;
+}
+
 async function getCachedUrls() {
   // Check in-memory cache first
   if (inMemoryCache && Date.now() - inMemoryCacheTime < IN_MEMORY_TTL) {
@@ -54,6 +121,14 @@ async function matchKeywordsToUrls(urls, keywords) {
 }
 
 async function scrapeTopCVPage(browser, url) {
+  // Try FlareSolverr first (for VPS with Cloudflare protection)
+  const html = await fetchWithFlareSolverr(url);
+  if (html) {
+    console.log(`[FlareSolverr] Got response for ${url}`);
+    return extractJobsFromHtml(html);
+  }
+
+  // Fall back to direct Playwright (for local dev)
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
   });
@@ -63,7 +138,6 @@ async function scrapeTopCVPage(browser, url) {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: config.scraperTimeoutMs });
     await page.waitForTimeout(2000);
     
-    // Check for Cloudflare
     const title = await page.title().catch(() => '');
     if (title.toLowerCase().includes('cloudflare') || title.toLowerCase().includes('attention')) {
       console.log('Cloudflare challenge detected');

@@ -14,14 +14,27 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - FLARESOLVERR_URL=http://flaresolverr:8191
     depends_on:
       - redis
+      - flaresolverr
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
+    restart: unless-stopped
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    ports:
+      - "8191:8191"
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+      - MAX_TIMEOUT=60000
     restart: unless-stopped
 
 volumes:

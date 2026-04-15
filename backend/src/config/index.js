@@ -51,4 +51,7 @@ export const config = {
   aiRerankCandidateLimit: Number(process.env.AI_RERANK_CANDIDATE_LIMIT || 30),
   aiAgentMaxSteps: Number(process.env.AI_AGENT_MAX_STEPS || 8),
   aiAgentObservationItems: Number(process.env.AI_AGENT_OBSERVATION_ITEMS || 12),
+
+  // FlareSolverr (Cloudflare bypass)
+  flareSolverrUrl: process.env.FLARESOLVERR_URL || '',
 };
