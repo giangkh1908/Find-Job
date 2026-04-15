@@ -56,7 +56,7 @@ export const emailProvider = {
 
     try {
       await transporter.sendMail({
-        from: config.smtpFrom,
+        from: `"${config.smtpFromName}" <${config.smtpFrom}>`,
         to: email,
         subject: template.subject,
         html: template.html,

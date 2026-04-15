@@ -27,6 +27,7 @@ export const config = {
   smtpUser: process.env.SMTP_USER,
   smtpPass: process.env.SMTP_PASS,
   smtpFrom: process.env.SMTP_FROM || 'noreply@example.com',
+  smtpFromName: process.env.SMTP_FROM_NAME || 'Find Job',
 
   // Frontend URL
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
