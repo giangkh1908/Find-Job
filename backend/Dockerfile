@@ -11,7 +11,7 @@ WORKDIR /app
 
 COPY package*.json ./
 
-RUN npm ci --omit=dev
+RUN npm ci --production || npm install --production
 
 RUN npx playwright install chromium --with-deps || \
     echo "Playwright install failed, continuing..."
