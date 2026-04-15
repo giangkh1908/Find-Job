@@ -334,7 +334,7 @@ MIT License - xem [LICENSE](LICENSE) file.
 
 ## 👤 Author
 
-**Nguyễn Giang Khánh**
+**Kim Giang**
 
 - GitHub: [@giangkh1908](https://github.com/giangkh1908)
 - Email: quangvu1922@gmail.com
