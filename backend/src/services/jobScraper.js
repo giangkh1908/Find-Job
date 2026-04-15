@@ -7,6 +7,7 @@ import { analyzePrompt, selectRelevantUrls, filterAndRankJobs } from './promptAn
 import { matchLocation, groupJobsByLocation } from '../utils/locationMatcher.js';
 import { sitemapCacheModel } from '../models/sitemapCacheModel.js';
 import { syncSitemap } from './sitemapScheduler.js';
+import { parse } from 'node-html-parser';
 
 let inMemoryCache = null;
 let inMemoryCacheTime = 0;
@@ -46,7 +47,7 @@ async function fetchWithFlareSolverr(url) {
 
 function extractJobsFromHtml(html) {
   const results = [];
-  const parser = new (require('node-html-parser')).default(html);
+  const parser = parse(html);
   
   const cards = parser.querySelectorAll('.job-item-search-result');
   
