@@ -47,6 +47,9 @@ export async function refreshSitemap() {
 
     // Get body text (the XML content)
     const xml = await page.evaluate(() => document.body.innerText);
+    
+    // Debug: log first 500 chars
+    console.log('[SitemapService] XML preview:', xml.substring(0, 500));
 
     await browser.close();
 
