@@ -3,7 +3,7 @@
  */
 import { config } from '../config/index.js';
 import { getDB } from '../config/database/connection.js';
-import { analyzePrompt, filterAndRankJobs } from './promptAnalyzer.js';
+import { analyzePrompt, selectRelevantUrls, filterAndRankJobs } from './promptAnalyzer.js';
 import { matchLocation, groupJobsByLocation } from '../utils/locationMatcher.js';
 import { sitemapCacheModel } from '../models/sitemapCacheModel.js';
 import { syncSitemap } from './sitemapScheduler.js';
@@ -257,12 +257,18 @@ export async function scrapeJobs({ prompt, platforms, maxResults, locationPrefer
       console.log(`\n[2/4] Scraping ${platform}...`);
       
       if (platform === 'TopCV') {
-        // Use cached sitemap from database
-        const matchedUrls = await matchKeywordsToUrls(await getCachedUrls(), analysis.keywords);
-        
-        console.log(`Scraping ${matchedUrls.length} matched URLs...`);
-        
-        for (const urlObj of matchedUrls) {
+        // Step 2a: Fuzzy match keywords to get candidates
+        const candidates = await matchKeywordsToUrls(await getCachedUrls(), analysis.keywords);
+        console.log(`Fuzzy matched ${candidates.length} candidate URLs`);
+
+        // Step 2b: AI selects relevant URLs from candidates
+        console.log('[2/4] AI selecting relevant URLs...');
+        const selectedUrls = await selectRelevantUrls(candidates, prompt, analysis);
+        console.log(`AI selected ${selectedUrls.length} URLs: ${selectedUrls.map(u => u.slug).join(', ')}`);
+
+        console.log(`Scraping ${selectedUrls.length} selected URLs...`);
+
+        for (const urlObj of selectedUrls) {
           if (allJobs.length >= maxResults * 3) break; // Scrape more for filtering
           
           const jobs = await scrapeTopCVPage(browser, urlObj.url);

@@ -65,31 +65,43 @@ export const sitemapCacheModel = {
     }).toArray();
   },
 
-  async findByKeywords(keywords, limit = 10) {
+  async findByKeywords(keywords, limit = 20) {
     const db = getDB();
     const collection = db.collection(COLLECTION);
 
     if (!keywords.length) return [];
 
-    const orConditions = keywords.flatMap(kw => [
-      { slug: { $regex: kw.toLowerCase(), $options: 'i' } },
-      { keywords: { $regex: kw.toLowerCase(), $options: 'i' } },
-    ]);
+    const orConditions = keywords.flatMap(kw => {
+      const kwLower = kw.toLowerCase();
+      const conditions = [
+        { slug: { $regex: kwLower, $options: 'i' } },
+      ];
+      if (kw.length > 2) {
+        conditions.push({ keywords: { $regex: kwLower, $options: 'i' } });
+      }
+      return conditions;
+    });
 
     const results = await collection.find({ $or: orConditions }).limit(limit * 3).toArray();
 
-    // Score and deduplicate
     const scored = results.map(doc => {
       let score = 0;
       for (const kw of keywords) {
         const kwLower = kw.toLowerCase();
         if (doc.slug.toLowerCase().includes(kwLower)) score += 10;
-        if (doc.keywords.some(k => k.toLowerCase().includes(kwLower))) score += 5;
+        const kwTokens = kwLower.split(/[\s-]+/);
+        for (const token of kwTokens) {
+          if (token.length <= 2) {
+            const exactRe = new RegExp(`(^|-)${token}(-|$)`, 'i');
+            if (exactRe.test(doc.slug)) score += 8;
+          } else if (doc.slug.toLowerCase().includes(token)) {
+            score += 5;
+          }
+        }
       }
       return { ...doc, score };
     });
 
-    // Remove duplicates (same slug)
     const seen = new Set();
     const unique = scored.filter(doc => {
       if (seen.has(doc.slug)) return false;
@@ -97,11 +109,10 @@ export const sitemapCacheModel = {
       return true;
     });
 
-    // Sort by score, return top results
     return unique
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
-      .map(doc => ({ url: doc.url, slug: doc.slug }));
+      .map(doc => ({ url: doc.url, slug: doc.slug, score: doc.score }));
   },
 
   async getLatestFetch() {

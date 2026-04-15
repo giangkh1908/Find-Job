@@ -9,7 +9,7 @@ const SITEMAP_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 let sitemapCache = null;
 let sitemapCacheTime = 0;
 
-async function callOpenRouterAI(messages) {
+async function callOpenRouterAI(messages, maxTokens = 500) {
   const response = await fetch(`${config.openrouterBaseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -22,7 +22,7 @@ async function callOpenRouterAI(messages) {
       model: config.openrouterModel,
       messages,
       temperature: 0.1,
-      max_tokens: 500,
+      max_tokens: maxTokens,
     }),
   });
 
@@ -94,6 +94,61 @@ Chỉ trả lời JSON, không giải thích thêm.`;
       experienceFilter: null,
       locationFilter: null,
     };
+  }
+}
+
+export async function selectRelevantUrls(candidates, prompt, analysis) {
+  if (!candidates.length) return [];
+
+  if (candidates.length <= 3) return candidates;
+
+  const systemPrompt = `Bạn là chuyên gia tuyển dụng IT tại Việt Nam.
+
+Nhiệm vụ: Từ danh sách các danh mục việc làm (URL slugs), chọn ra những danh mục phù hợp nhất với yêu cầu tìm việc của người dùng.
+
+Yêu cầu: "${prompt}"
+Keywords: ${analysis.keywords.join(', ')}
+Kinh nghiệm: ${analysis.experienceFilter || 'Không yêu cầu'}
+Địa điểm: ${analysis.locationFilter || 'Bất kỳ'}
+
+Quy tắc:
+- Chỉ chọn danh mục THỰC SỰ liên quan đến yêu cầu
+- "IT" nghĩa là IT general/tech, KHÔNG phải substring trong từ khác
+- "fullstack developer" → chọn fullstack, nodejs, reactjs, vuejs, backend, frontend... KHÔNG chọn digital-marketing, copywriter
+- Ưu tiên danh mục có keyword chính xác trong slug
+- Trả về TỐI ĐA 10 slugs phù hợp nhất, sắp xếp theo độ liên quan
+
+Danh sách candidates:
+${candidates.map((c, i) => `${i}. ${c.slug}`).join('\n')}
+
+Trả lời JSON format:
+{
+  "selectedIndices": [0, 3, 7],
+  "reason": "giải thích ngắn gọn"
+}
+
+Chỉ trả lời JSON, không giải thích thêm.`;
+
+  try {
+    const result = await callOpenRouterAI([
+      { role: 'system', content: 'Bạn là JSON API. Chỉ trả lời JSON hợp lệ.' },
+      { role: 'user', content: systemPrompt },
+    ]);
+
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Invalid AI response');
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    const indices = parsed.selectedIndices || [];
+
+    return indices
+      .filter(i => i >= 0 && i < candidates.length)
+      .map(i => candidates[i]);
+  } catch (err) {
+    console.error('AI URL selection error:', err.message);
+    return candidates.slice(0, 5);
   }
 }
 
