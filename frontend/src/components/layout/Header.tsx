@@ -11,7 +11,7 @@ export function Header() {
   const handleLogout = async () => {
     await logout()
     setIsDropdownOpen(false)
-    navigate('/login')
+    navigate('/')
   }
 
   const getInitials = (email: string) => {

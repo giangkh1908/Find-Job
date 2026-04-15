@@ -10,12 +10,19 @@ import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: config.frontendUrl,
+// CORS - allow frontend
+const corsOptions = {
+  origin: [
+    config.frontendUrl,
+    'http://localhost:5173', // dev
+    'http://localhost:3000', // dev backend
+  ],
   credentials: true,
-}));
-app.use(express.json());
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
 
 // Simple cookie parser
 app.use((req, res, next) => {

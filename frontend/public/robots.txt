@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://findjob.com/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1
+
+# Disallow API routes (not useful for SEO)
+Disallow: /api/

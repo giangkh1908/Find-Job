@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/hooks'
-import { LoginPage, RegisterPage, HomePage } from '@/pages'
+import { LoginPage, RegisterPage, HomePage, LandingPage } from '@/pages'
+import { SeoProvider, Helmet } from '@/components/seo/SeoProvider'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -32,7 +33,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/home" replace />
   }
 
   return <>{children}</>
@@ -40,47 +41,73 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   return (
-    <Routes>
-      {/* Public routes */}
-      <Route
-        path="/login"
-        element={
-          <PublicRoute>
-            <LoginPage />
-          </PublicRoute>
-        }
-      />
-      <Route
-        path="/register"
-        element={
-          <PublicRoute>
-            <RegisterPage />
-          </PublicRoute>
-        }
-      />
+    <>
+      <Helmet>
+        <title>Tìm Việc Làm - Tìm Việc Theo Yêu Cầu AI | Find-Job</title>
+        <meta name="description" content="Tìm kiếm việc làm với AI thông minh. Nhập yêu cầu bằng ngôn ngữ tự nhiên - tìm việc phù hợp với kỹ năng và kinh nghiệm của bạn." />
+        <link rel="canonical" href="https://findjob.com/" />
+      </Helmet>
 
-      {/* Protected routes */}
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <HomePage />
-          </ProtectedRoute>
-        }
-      />
+      <Routes>
+        {/* Public routes */}
+        <Route
+          path="/"
+          element={
+            <PublicRoute>
+              <LandingPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/login"
+          element={
+            <PublicRoute>
+              <Helmet>
+                <title>Đăng Nhập | Find-Job</title>
+                <meta name="description" content="Đăng nhập vào Find-Job để tìm việc làm với AI thông minh." />
+              </Helmet>
+              <LoginPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/register"
+          element={
+            <PublicRoute>
+              <Helmet>
+                <title>Đăng Ký | Find-Job</title>
+                <meta name="description" content="Đăng ký tài khoản Find-Job để bắt đầu tìm việc với AI." />
+              </Helmet>
+              <RegisterPage />
+            </PublicRoute>
+          }
+        />
 
-      {/* Catch all */}
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* Protected routes */}
+        <Route
+          path="/home"
+          element={
+            <ProtectedRoute>
+              <HomePage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch all - redirect based on auth status */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </>
   )
 }
 
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <SeoProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </SeoProvider>
     </BrowserRouter>
   )
 }
