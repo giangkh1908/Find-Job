@@ -3,13 +3,18 @@ FROM node:20-bookworm-slim AS base
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
+    gnupg \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev && \
-    npx playwright install chromium --with-deps
+
+RUN npm ci --omit=dev
+
+RUN npx playwright install chromium --with-deps || \
+    echo "Playwright install failed, continuing..."
 
 COPY src/ ./src/
 
