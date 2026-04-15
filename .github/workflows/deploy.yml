@@ -65,6 +65,10 @@ jobs:
           script: |
             cd /home/deploy/app
 
+            # Pull latest code from git
+            echo "Pulling latest code..."
+            git pull origin main
+
             # Pull latest images
             docker compose -f docker-compose.prod.yml pull
 
