@@ -26,11 +26,7 @@ export const tokenService = {
 
   // Verify access token
   verifyAccessToken(token) {
-    try {
-      return jwt.verify(token, config.jwtSecret);
-    } catch {
-      return null;
-    }
+    return jwt.verify(token, config.jwtSecret);
   },
 
   // Verify refresh token

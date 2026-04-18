@@ -13,6 +13,15 @@ let inMemoryCache = null;
 let inMemoryCacheTime = 0;
 const IN_MEMORY_TTL = 60 * 1000; // 1 minute
 
+const TOPCV_SELECTORS = {
+  card: '.job-item-search-result',
+  title: 'a[aria-label]',
+  company: '.avatar img',
+  salary: 'label.salary span',
+  address: 'label.address span',
+  experience: 'label.exp span',
+};
+
 async function fetchWithFlareSolverr(url) {
   if (!config.flareSolverrUrl) {
     return null;
@@ -48,23 +57,23 @@ async function fetchWithFlareSolverr(url) {
 function extractJobsFromHtml(html) {
   const results = [];
   const parser = parse(html);
-  
-  const cards = parser.querySelectorAll('.job-item-search-result');
-  
+
+  const cards = parser.querySelectorAll(TOPCV_SELECTORS.card);
+
   cards.forEach(card => {
-    const titleEl = card.querySelector('a[aria-label]');
-    const imgEl = card.querySelector('.avatar img');
-    const salaryEl = card.querySelector('label.salary span');
-    const addressEl = card.querySelector('label.address span');
-    const expEl = card.querySelector('label.exp span');
-    
+    const titleEl = card.querySelector(TOPCV_SELECTORS.title);
+    const imgEl = card.querySelector(TOPCV_SELECTORS.company);
+    const salaryEl = card.querySelector(TOPCV_SELECTORS.salary);
+    const addressEl = card.querySelector(TOPCV_SELECTORS.address);
+    const expEl = card.querySelector(TOPCV_SELECTORS.experience);
+
     const title = titleEl?.getAttribute('aria-label') || '';
     const link = titleEl?.getAttribute('href')?.split('?')[0] || '';
     const company = imgEl?.getAttribute('alt') || '';
     const salary = salaryEl?.text?.trim() || 'Thoả thuận';
     const location = addressEl?.text?.trim() || 'N/A';
     const experience = expEl?.text?.trim() || 'N/A';
-    
+
     if (title && link && !link.includes('cloudflare') && !link.includes('5xx')) {
       results.push({
         title,
@@ -76,7 +85,11 @@ function extractJobsFromHtml(html) {
       });
     }
   });
-  
+
+  if (results.length === 0) {
+    console.warn('[JobScraper] No jobs extracted from HTML. Site structure may have changed.');
+  }
+
   return results;
 }
 
@@ -147,22 +160,31 @@ async function scrapeTopCVPage(browser, url) {
     
     const jobs = await page.evaluate(() => {
       const results = [];
-      const cards = document.querySelectorAll('.job-item-search-result');
-      
+      const selectors = {
+        card: '.job-item-search-result',
+        title: 'a[aria-label]',
+        company: '.avatar img',
+        salary: 'label.salary span',
+        address: 'label.address span',
+        experience: 'label.exp span',
+      };
+
+      const cards = document.querySelectorAll(selectors.card);
+
       cards.forEach(card => {
-        const titleEl = card.querySelector('a[aria-label]');
-        const imgEl = card.querySelector('.avatar img');
-        const salaryEl = card.querySelector('label.salary span');
-        const addressEl = card.querySelector('label.address span');
-        const expEl = card.querySelector('label.exp span');
-        
+        const titleEl = card.querySelector(selectors.title);
+        const imgEl = card.querySelector(selectors.company);
+        const salaryEl = card.querySelector(selectors.salary);
+        const addressEl = card.querySelector(selectors.address);
+        const expEl = card.querySelector(selectors.experience);
+
         const title = titleEl?.getAttribute('aria-label') || '';
         const link = titleEl?.getAttribute('href')?.split('?')[0] || '';
         const company = imgEl?.getAttribute('alt') || '';
         const salary = salaryEl?.textContent?.trim() || 'Thoả thuận';
         const location = addressEl?.textContent?.trim() || 'N/A';
         const experience = expEl?.textContent?.trim() || 'N/A';
-        
+
         if (title && link && !link.includes('cloudflare') && !link.includes('5xx')) {
           results.push({
             title,
@@ -174,7 +196,7 @@ async function scrapeTopCVPage(browser, url) {
           });
         }
       });
-      
+
       return results;
     });
     
@@ -292,45 +314,29 @@ async function scrapeITviec(browser, keyword, limit) {
   }
 }
 
-export async function scrapeJobs({ prompt, platforms, maxResults, locationPreference }) {
-  let chromium;
-  try {
-    ({ chromium } = await import('playwright'));
-  } catch (err) {
-    throw new Error('Playwright is not installed. Please run npm install in backend.');
-  }
-
-  const browser = await chromium.launch({
-    headless: true,
-    args: [
-      '--disable-blink-features=AutomationControlled',
-      '--disable-dev-shm-usage',
-      '--no-sandbox',
-    ],
-  });
-
+export async function scrapeJobs(browser, { prompt, platforms, maxResults, locationPreference }) {
   try {
     console.log(`\n=== AI Job Search ===`);
     console.log(`Prompt: ${prompt}`);
     console.log(`Platforms: ${platforms.join(', ')}`);
     console.log(`Max results: ${maxResults}`);
     console.log(`Location preference: ${locationPreference || 'Any'}`);
-    
+
     // Step 1: AI analyze prompt
     console.log('\n[1/4] Analyzing prompt with AI...');
     const analysis = await analyzePrompt(prompt);
     console.log(`Keywords: ${analysis.keywords.join(', ')}`);
     console.log(`Experience filter: ${analysis.experienceFilter || 'Any'}`);
     console.log(`Location filter: ${analysis.locationFilter || 'Any'}`);
-    
+
     const effectiveLocation = locationPreference || analysis.locationFilter;
     const allJobs = [];
     const seenLinks = new Set();
-    
+
     // Step 2: For each platform, scrape jobs
     for (const platform of platforms) {
       console.log(`\n[2/4] Scraping ${platform}...`);
-      
+
       if (platform === 'TopCV') {
         // Step 2a: Fuzzy match keywords to get candidates
         const candidates = await matchKeywordsToUrls(await getCachedUrls(), analysis.keywords);
@@ -345,10 +351,10 @@ export async function scrapeJobs({ prompt, platforms, maxResults, locationPrefer
 
         for (const urlObj of selectedUrls) {
           if (allJobs.length >= maxResults * 3) break; // Scrape more for filtering
-          
+
           const jobs = await scrapeTopCVPage(browser, urlObj.url);
           console.log(`  ${urlObj.slug}: ${jobs.length} jobs`);
-          
+
           for (const job of jobs) {
             if (!seenLinks.has(job.link)) {
               seenLinks.add(job.link);
@@ -374,9 +380,9 @@ export async function scrapeJobs({ prompt, platforms, maxResults, locationPrefer
         }
       }
     }
-    
+
     console.log(`\nTotal scraped: ${allJobs.length} jobs`);
-    
+
     // Step 3: Filter by location
     console.log('\n[3/4] Filtering by location...');
     let filteredJobs = allJobs;
@@ -387,11 +393,11 @@ export async function scrapeJobs({ prompt, platforms, maxResults, locationPrefer
       });
       console.log(`After location filter: ${filteredJobs.length} jobs`);
     }
-    
+
     // Step 4: AI filter and rank
     console.log('\n[4/4] AI filtering and ranking...');
     const ranked = await filterAndRankJobs(filteredJobs, analysis, effectiveLocation);
-    
+
     const finalJobs = ranked.jobs
       .filter(j => j._score > 0)
       .slice(0, maxResults)
@@ -405,12 +411,12 @@ export async function scrapeJobs({ prompt, platforms, maxResults, locationPrefer
         link: job.link,
         _reason: job._reason,
       }));
-    
+
     console.log(`\nFinal results: ${finalJobs.length} jobs`);
-    
+
     // Get location stats
     const locationStats = groupJobsByLocation(finalJobs);
-    
+
     return {
       jobs: finalJobs,
       aiAnalysis: {
@@ -424,7 +430,8 @@ export async function scrapeJobs({ prompt, platforms, maxResults, locationPrefer
       locationStats,
       summary: ranked.summary,
     };
-  } finally {
-    await browser.close();
+  } catch (err) {
+    console.error('Scrape jobs error:', err);
+    throw err;
   }
 }

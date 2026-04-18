@@ -4,6 +4,8 @@
 import { tokenService } from '../services/tokenService.js';
 import { error } from '../utils/response.js';
 
+import jwt from 'jsonwebtoken';
+
 export function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
 
@@ -12,12 +14,14 @@ export function authenticate(req, res, next) {
   }
 
   const token = authHeader.split(' ')[1];
-  const decoded = tokenService.verifyAccessToken(token);
-
-  if (!decoded) {
+  try {
+    const decoded = tokenService.verifyAccessToken(token);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      return error(res, 'Token expired', 401, 'TOKEN_EXPIRED');
+    }
     return error(res, 'Invalid or expired token', 401, 'UNAUTHORIZED');
   }
-
-  req.user = decoded;
-  next();
 }

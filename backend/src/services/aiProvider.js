@@ -38,7 +38,7 @@ function buildPrompt(keyword, jobs) {
   };
 }
 
-async function callOpenRouter({ messages, temperature = 0 }) {
+async function callOpenRouter({ messages, temperature = 0 }, attempt = 1) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.aiTimeoutMs);
 
@@ -61,6 +61,15 @@ async function callOpenRouter({ messages, temperature = 0 }) {
 
     if (!response.ok) {
       const body = await response.text();
+
+      // Retry on rate limit (429) or server errors (5xx)
+      if ((response.status === 429 || response.status >= 500) && attempt < 3) {
+        const delay = Math.pow(2, attempt) * 1000;
+        console.warn(`[AIProvider] OpenRouter error ${response.status}. Retrying in ${delay}ms... (Attempt ${attempt})`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return callOpenRouter({ messages, temperature }, attempt + 1);
+      }
+
       throw new Error(`OpenRouter error ${response.status}: ${body}`);
     }
 

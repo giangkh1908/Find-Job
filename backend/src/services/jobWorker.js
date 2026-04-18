@@ -1,10 +1,8 @@
-/**
- * Job Worker - queue consumer lifecycle
- */
 import { config } from '../config/index.js';
 import { jobQueue } from './jobQueue.js';
 import { scrapeJobs } from './jobScraper.js';
 import { jobSearchModel } from '../models/jobSearchModel.js';
+import { browserManager } from './browserManager.js';
 
 let intervalRef = null;
 let inFlight = 0;
@@ -37,8 +35,9 @@ async function processOne(job) {
   });
 
   try {
+    const browser = await browserManager.getBrowser();
     const results = await withTimeout(
-      scrapeJobs(payload),
+      scrapeJobs(browser, payload),
       config.scraperJobTimeoutMs,
       `Search timed out after ${config.scraperJobTimeoutMs}ms`
     );
@@ -86,7 +85,7 @@ async function tick() {
       inFlight += 1;
       processOne(job)
         .catch(err => {
-          console.error('Worker process failed:', err.message);
+          console.error(`[Worker] Fatal error processing job ${job.searchId}:`, err);
         })
         .finally(() => {
           inFlight -= 1;
@@ -109,9 +108,10 @@ export function startJobWorker() {
   console.log(`Job worker started (poll=${config.jobQueuePollMs}ms, concurrency=${config.scraperConcurrency})`);
 }
 
-export function stopJobWorker() {
+export async function stopJobWorker() {
   if (intervalRef) {
     clearInterval(intervalRef);
     intervalRef = null;
   }
+  await browserManager.close();
 }

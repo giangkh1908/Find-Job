@@ -65,11 +65,16 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
     },
   })
 
-  const data = await response.json()
   if (!response.ok) {
-    throw new Error(data.error || 'Request failed')
+    let errorMsg = 'Request failed'
+    try {
+      const errData = await response.json()
+      errorMsg = errData.error || errorMsg
+    } catch {}
+    throw new Error(errorMsg)
   }
 
+  const data = await response.json()
   return data.data as T
 }
 

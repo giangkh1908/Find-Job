@@ -137,8 +137,15 @@ export const authService = {
       throw new AuthError('Refresh token revoked', 401, 'UNAUTHORIZED');
     }
 
+    // Rotation: Generate new access AND refresh tokens
     const accessToken = tokenService.generateAccessToken(user);
-    return { accessToken };
+    const newVersion = user.refreshTokenVersion + 1;
+    const newRefreshToken = tokenService.generateRefreshToken(user, newVersion);
+
+    // Save new refresh token and increment version
+    await userModel.saveRefreshToken(user._id.toString(), newRefreshToken, newVersion);
+
+    return { accessToken, refreshToken: newRefreshToken };
   },
 
   // Get user
